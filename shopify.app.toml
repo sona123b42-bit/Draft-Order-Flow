@@ -1,0 +1,57 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "98648eec19cafb67ce111eff019f70ba"
+name = "Draft Order App"
+application_url = "https://your-ngrok-url.ngrok-free.app"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2026-01"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_draft_orders,read_draft_orders,read_products"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ ]
+
+[app_preferences]
+url = "https://your-ngrok-url.ngrok-free.app/auth/callback"
+
+[product.metafields.app.demo_info]
+type = "single_line_text_field"
+name = "Demo Source Info"
+description = "Tracks products created by the Shopify app template for development"
+
+  [product.metafields.app.demo_info.access]
+  admin = "merchant_read_write"
+
+[metaobjects.app.example]
+name = "Example"
+description = "An example metaobject definition created by this template"
+
+  [metaobjects.app.example.access]
+  admin = "merchant_read_write"
+
+[metaobjects.app.example.fields.title]
+name = "Title"
+type = "single_line_text_field"
+required = true
+
+[metaobjects.app.example.fields.description]
+name = "Description"
+type = "multi_line_text_field"
