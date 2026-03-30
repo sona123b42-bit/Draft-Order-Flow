@@ -1,44 +1,14 @@
 import { authenticate } from "../shopify.server";
 
 export async function action({ request }) {
-  const url = new URL(request.url);
-  const hasProxySignature = Boolean(url.searchParams.get("signature"));
-  const hasProxyShopHeader = Boolean(
-    request.headers.get("x-shopify-shop-domain"),
-  );
-  const isProxyRequest = hasProxySignature || hasProxyShopHeader;
+  const { admin } = await authenticate.public.appProxy(request);
 
-  let admin;
-
-  try {
-    if (isProxyRequest) {
-      ({ admin } = await authenticate.public.appProxy(request));
-    } else {
-      ({ admin } = await authenticate.admin(request));
-    }
-  } catch (error) {
-    console.error("Draft order auth failed:", error);
-
-    return Response.json(
-      {
-        draftOrder: null,
-        userErrors: [
-          {
-            field: ["auth"],
-            message:
-              "Unable to authenticate this request. If this is storefront traffic, ensure it is sent via Shopify App Proxy.",
-          },
-        ],
-      },
-      { status: 401 },
-    );
-  }
-
+  const contentType = request.headers.get("content-type") || "";
   let payload = {};
 
-  try {
+  if (contentType.includes("application/json")) {
     payload = await request.json();
-  } catch {
+  } else {
     const formData = await request.formData();
     payload = Object.fromEntries(formData);
   }
