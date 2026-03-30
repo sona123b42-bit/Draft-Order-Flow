@@ -1,7 +1,38 @@
 import { authenticate } from "../shopify.server";
 
 export async function action({ request }) {
-  const { admin } = await authenticate.public.appProxy(request);
+  const url = new URL(request.url);
+  const hasProxySignature = Boolean(url.searchParams.get("signature"));
+  const hasProxyShopHeader = Boolean(
+    request.headers.get("x-shopify-shop-domain"),
+  );
+  const isProxyRequest = hasProxySignature || hasProxyShopHeader;
+
+  let admin;
+
+  try {
+    if (isProxyRequest) {
+      ({ admin } = await authenticate.public.appProxy(request));
+    } else {
+      ({ admin } = await authenticate.admin(request));
+    }
+  } catch (error) {
+    console.error("Draft order auth failed:", error);
+
+    return Response.json(
+      {
+        draftOrder: null,
+        userErrors: [
+          {
+            field: ["auth"],
+            message:
+              "Unable to authenticate this request. If this is storefront traffic, ensure it is sent via Shopify App Proxy.",
+          },
+        ],
+      },
+      { status: 401 },
+    );
+  }
 
   let payload = {};
 
@@ -12,9 +43,35 @@ export async function action({ request }) {
     payload = Object.fromEntries(formData);
   }
 
-  const { items = [], note } = payload;
+  const {
+    items = [],
+    note,
+    title,
+    quantity,
+    unitPrice,
+    variantId,
+    currencyCode,
+  } = payload;
 
-  if (!Array.isArray(items) || items.length === 0) {
+  const normalizedItemsInput =
+    Array.isArray(items) && items.length > 0
+      ? items
+      : title || variantId
+        ? [
+            {
+              title,
+              quantity,
+              unitPrice,
+              variantId,
+              currencyCode,
+            },
+          ]
+        : [];
+
+  if (
+    !Array.isArray(normalizedItemsInput) ||
+    normalizedItemsInput.length === 0
+  ) {
     return Response.json(
       {
         draftOrder: null,
@@ -28,17 +85,22 @@ export async function action({ request }) {
 
   const normalizedLineItems = [];
   const userErrors = [];
+  const fallbackCurrencyCode = String(currencyCode || "USD").toUpperCase();
 
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index] || {};
-    const variantId = item.variantId;
+  for (let index = 0; index < normalizedItemsInput.length; index += 1) {
+    const item = normalizedItemsInput[index] || {};
+    const itemVariantId = item.variantId;
+    const itemTitle = item.title;
+    const itemCurrencyCode = String(
+      item.currencyCode || fallbackCurrencyCode,
+    ).toUpperCase();
     const parsedQuantity = Number(item.quantity ?? 1);
     const parsedUnitPrice = Number(item.unitPrice ?? 0);
 
-    if (!variantId) {
+    if (!itemVariantId && !itemTitle) {
       userErrors.push({
         field: ["items", String(index), "variantId"],
-        message: "Variant ID is required",
+        message: "Either variantId or title is required",
       });
       continue;
     }
@@ -51,20 +113,40 @@ export async function action({ request }) {
       continue;
     }
 
-    if (!Number.isFinite(parsedUnitPrice) || parsedUnitPrice <= 0) {
+    if (
+      !itemVariantId &&
+      (!Number.isFinite(parsedUnitPrice) || parsedUnitPrice <= 0)
+    ) {
       userErrors.push({
         field: ["items", String(index), "unitPrice"],
-        message: "Unit price must be greater than 0",
+        message: "Unit price must be greater than 0 for custom line items",
       });
       continue;
     }
 
+    if (itemVariantId) {
+      const variantLineItem = {
+        variantId: itemVariantId,
+        quantity: Math.round(parsedQuantity),
+      };
+
+      if (Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0) {
+        variantLineItem.priceOverride = {
+          amount: parsedUnitPrice.toFixed(2),
+          currencyCode: itemCurrencyCode,
+        };
+      }
+
+      normalizedLineItems.push(variantLineItem);
+      continue;
+    }
+
     normalizedLineItems.push({
-      variantId,
+      title: itemTitle,
       quantity: Math.round(parsedQuantity),
-      priceOverride: {
+      originalUnitPriceWithCurrency: {
         amount: parsedUnitPrice.toFixed(2),
-        currencyCode: "USD",
+        currencyCode: itemCurrencyCode,
       },
     });
   }
