@@ -1,66 +1,12 @@
 import { authenticate } from "../shopify.server";
 
-const CANVAS_SIZE = 100;
-
-const escapeXml = (value) =>
-  String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-
-const toDataUrl = async (source) => {
-  const safeSource = String(source || "").trim();
-  if (!safeSource) return "";
-  if (safeSource.startsWith("data:image/")) return safeSource;
-
-  if (/^https?:\/\//i.test(safeSource)) {
-    const response = await fetch(safeSource);
-    if (!response.ok) {
-      throw new Error(`Unable to fetch image source: ${safeSource}`);
-    }
-
-    const mimeType = (response.headers.get("content-type") || "image/png").split(";")[0];
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-    return `data:${mimeType};base64,${base64}`;
-  }
-
-  return "";
-};
-
 const buildProofSvgDataUrl = async (side) => {
   const providedProofDataUrl = String(side?.proofDataUrl || "").trim();
   if (providedProofDataUrl.startsWith("data:image/")) {
     return providedProofDataUrl;
   }
 
-  const baseImage = await toDataUrl(side?.baseImage);
-  if (!baseImage) {
-    throw new Error("Missing base image");
-  }
-
-  const hasOverlay = String(side?.overlay || "").toLowerCase() !== "no";
-  const overlayImage = hasOverlay ? await toDataUrl(side?.overlayImage) : "";
-
-  const left = Number.isFinite(Number(side?.left)) ? Number(side.left) : 36;
-  const top = Number.isFinite(Number(side?.top)) ? Number(side.top) : 20;
-  const width = Number.isFinite(Number(side?.width)) ? Number(side.width) : 28;
-  const height = Number.isFinite(Number(side?.height)) ? Number(side.height) : 17;
-
-  const overlayMarkup = overlayImage
-    ? `<image x="${left}" y="${top}" width="${width}" height="${height}" href="${escapeXml(overlayImage)}" xlink:href="${escapeXml(overlayImage)}" preserveAspectRatio="none" />`
-    : "";
-
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}" viewBox="0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}">
-  <rect width="100%" height="100%" fill="#ffffff"/>
-  <image x="0" y="0" width="100%" height="100%" href="${escapeXml(baseImage)}" xlink:href="${escapeXml(baseImage)}" preserveAspectRatio="none" />
-  ${overlayMarkup}
-</svg>`;
-
-  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+  throw new Error("Missing proofDataUrl from storefront preview");
 };
 
 const sanitizeFileStem = (value) =>
