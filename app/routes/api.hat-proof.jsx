@@ -51,7 +51,7 @@ const buildProofSvgDataUrl = async (side) => {
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}" viewBox="0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}">
   <rect width="100%" height="100%" fill="#ffffff"/>
-  <image x="0" y="0" width="100%" height="100%" href="${escapeXml(baseImage)}" xlink:href="${escapeXml(baseImage)}" preserveAspectRatio="xMidYMid meet" />
+  <image x="0" y="0" width="100%" height="100%" href="${escapeXml(baseImage)}" xlink:href="${escapeXml(baseImage)}" preserveAspectRatio="none" />
   ${overlayMarkup}
 </svg>`;
 
