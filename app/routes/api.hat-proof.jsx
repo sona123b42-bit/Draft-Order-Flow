@@ -31,6 +31,11 @@ const toDataUrl = async (source) => {
 };
 
 const buildProofSvgDataUrl = async (side) => {
+  const providedProofDataUrl = String(side?.proofDataUrl || "").trim();
+  if (providedProofDataUrl.startsWith("data:image/")) {
+    return providedProofDataUrl;
+  }
+
   const baseImage = await toDataUrl(side?.baseImage);
   if (!baseImage) {
     throw new Error("Missing base image");
