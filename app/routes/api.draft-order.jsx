@@ -66,6 +66,15 @@ export async function action({ request }) {
     ).toUpperCase();
     const parsedQuantity = Number(item.quantity ?? 1);
     const parsedUnitPrice = Number(item.unitPrice ?? 0);
+    const rawCustomAttributes = Array.isArray(item.customAttributes)
+      ? item.customAttributes
+      : [];
+    const customAttributes = rawCustomAttributes
+      .map((attribute) => ({
+        key: String(attribute?.key || "").trim(),
+        value: String(attribute?.value || "").trim(),
+      }))
+      .filter((attribute) => attribute.key && attribute.value);
 
     if (!itemVariantId && !itemTitle) {
       userErrors.push({
@@ -100,6 +109,10 @@ export async function action({ request }) {
         quantity: Math.round(parsedQuantity),
       };
 
+      if (customAttributes.length) {
+        variantLineItem.customAttributes = customAttributes;
+      }
+
       if (Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0) {
         variantLineItem.priceOverride = {
           amount: parsedUnitPrice.toFixed(2),
@@ -118,6 +131,7 @@ export async function action({ request }) {
         amount: parsedUnitPrice.toFixed(2),
         currencyCode: itemCurrencyCode,
       },
+      ...(customAttributes.length ? { customAttributes } : {}),
     });
   }
 
@@ -151,6 +165,10 @@ export async function action({ request }) {
                 node {
                   title
                   quantity
+                  customAttributes {
+                    key
+                    value
+                  }
                   originalUnitPriceSet {
                     shopMoney {
                       amount
